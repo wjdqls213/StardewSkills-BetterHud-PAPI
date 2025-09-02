@@ -1,0 +1,16 @@
+name: StardewSkills
+main: gg.chill.stardewskills.StardewSkillsPlugin
+version: 0.3.0-papi
+api-version: '1.20'
+author: chillgpt
+softdepend: [PlaceholderAPI]
+commands:
+  skills:
+    description: Open Stardew-like skill GUI
+    usage: /skills
+    permission: stardewskills.use
+permissions:
+  stardewskills.use:
+    default: true
+  stardewskills.admin:
+    default: op

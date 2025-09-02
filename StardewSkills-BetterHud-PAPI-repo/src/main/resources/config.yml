@@ -1,0 +1,8 @@
+gui:
+  title: "&a&lStardewSkills &7(힐링 서버)"
+  filler: "GRAY_STAINED_GLASS_PANE"
+  icons:
+    FARMING: "WHEAT"
+    FISHING: "FISHING_ROD"
+    WOODCUTTING: "OAK_LOG"
+    MINING: "IRON_PICKAXE"
