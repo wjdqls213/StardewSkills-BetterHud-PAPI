@@ -22,32 +22,37 @@ jobs:
       - name: Set up Gradle
         uses: gradle/gradle-build-action@v2
 
+      # ★ build.gradle 위치 자동 탐지 → PROJ 환경변수에 기록
       - name: Detect project dir
-        id: detect
         shell: bash
         run: |
-          echo "Workspace:"
-          ls -la
+          echo "[Workspace]"; ls -la
+          # 1) 루트
           if [ -f build.gradle ]; then
-            echo "proj=." >> $GITHUB_OUTPUT
+            PROJ="."
+          # 2) 흔한 폴더명
           elif [ -f StardewSkills-BetterHud-PAPI/build.gradle ]; then
-            echo "proj=StardewSkills-BetterHud-PAPI" >> $GITHUB_OUTPUT
+            PROJ="StardewSkills-BetterHud-PAPI"
+          elif [ -f StardewSkills-BetterHud-PAPI-repo/build.gradle ]; then
+            PROJ="StardewSkills-BetterHud-PAPI-repo"
           else
-            # 가장 흔한 2중 폴더 케이스를 폭넓게 탐색
-            CAND=$(find . -maxdepth 2 -type f -name build.gradle | head -n1)
+            # 3) 2단계까지 탐색
+            CAND=$(find . -maxdepth 2 -type f -name build.gradle | head -n1 || true)
             if [ -n "$CAND" ]; then
-              DIR=$(dirname "$CAND")
-              echo "proj=${DIR#.}" >> $GITHUB_OUTPUT
+              PROJ="$(dirname "$CAND")"
+              PROJ="${PROJ#./}"
             else
-              echo "build.gradle not found"; exit 1
+              echo "::error::build.gradle not found anywhere"; exit 1
             fi
           fi
-          echo "Using project dir: ${{ steps.detect.outputs.proj }}"
+          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
+          echo "[Detect] Using project dir: $PROJ"
 
       - name: Build with Gradle
         shell: bash
         run: |
-          cd "${{ steps.detect.outputs.proj }}"
+          cd "$PROJ"
+          echo "[Build] pwd=$(pwd)"
           gradle build
 
       - name: Upload JAR artifact
@@ -56,5 +61,5 @@ jobs:
           name: stardewskills-jar
           path: |
             build/libs/*.jar
-            ${{ steps.detect.outputs.proj }}/build/libs/*.jar
-          if-no-files-found: warn
+            ${{ github.workspace }}/$PROJ/build/libs/*.jar
+          if-no-files-found: error
