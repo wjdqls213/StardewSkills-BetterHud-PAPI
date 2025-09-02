@@ -1,7 +1,7 @@
 name: Build StardewSkills (BetterHud + PAPI)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: {} # 수동 실행 버튼
   push:
     branches: [ "**" ]
   pull_request:
@@ -9,28 +9,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # 1. 저장소 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. JDK 21 설치 (Paper 1.21.1 호환)
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
+      # 3. Gradle 캐시 최적화
       - name: Set up Gradle
         uses: gradle/gradle-build-action@v2
 
-      # ★ build.gradle 위치 자동 탐지 → PROJ 환경변수에 기록
+      # 4. build.gradle 위치 자동 탐지 → PROJ 환경변수 저장
       - name: Detect project dir
+        id: detect
         shell: bash
         run: |
-          echo "[Workspace]"; ls -la
-          # 1) 루트
+          echo "[Workspace root]"
+          ls -la
+
+          # 1) 루트에 build.gradle 있는 경우
           if [ -f build.gradle ]; then
             PROJ="."
-          # 2) 흔한 폴더명
+          # 2) 일반적인 폴더명 (repo명 포함)
           elif [ -f StardewSkills-BetterHud-PAPI/build.gradle ]; then
             PROJ="StardewSkills-BetterHud-PAPI"
           elif [ -f StardewSkills-BetterHud-PAPI-repo/build.gradle ]; then
@@ -39,26 +46,33 @@ jobs:
             # 3) 2단계까지 탐색
             CAND=$(find . -maxdepth 2 -type f -name build.gradle | head -n1 || true)
             if [ -n "$CAND" ]; then
-              PROJ="$(dirname "$CAND")"
+              PROJ=$(dirname "$CAND")
               PROJ="${PROJ#./}"
             else
-              echo "::error::build.gradle not found anywhere"; exit 1
+              echo "::error::build.gradle not found"; exit 1
             fi
           fi
+
           echo "PROJ=$PROJ" >> "$GITHUB_ENV"
           echo "[Detect] Using project dir: $PROJ"
 
+      # 5. Gradle 빌드 실행
       - name: Build with Gradle
+        working-directory: ${{ env.PROJ }}
         run: |
-          cd "$PROJ"
+          echo "[Build] Running gradle build..."
           gradle build --no-daemon --refresh-dependencies
 
+      # 6. 디버그: 빌드 아웃풋 확인
+      - name: List build outputs (debug)
+        run: |
+          ls -la "${{ env.PROJ }}/build" || true
+          ls -la "${{ env.PROJ }}/build/libs" || true
 
+      # 7. JAR 파일 업로드
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: stardewskills-jar
-          path: |
-            build/libs/*.jar
-            ${{ github.workspace }}/$PROJ/build/libs/*.jar
+          path: ${{ env.PROJ }}/build/libs/*.jar
           if-no-files-found: error
