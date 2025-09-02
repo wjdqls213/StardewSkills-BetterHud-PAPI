@@ -1,7 +1,7 @@
 name: Build StardewSkills (BetterHud + PAPI)
 
 on:
-  workflow_dispatch: {}   # 수동 실행 버튼
+  workflow_dispatch: {}
   push:
     branches: [ "**" ]
   pull_request:
@@ -22,11 +22,39 @@ jobs:
       - name: Set up Gradle
         uses: gradle/gradle-build-action@v2
 
+      - name: Detect project dir
+        id: detect
+        shell: bash
+        run: |
+          echo "Workspace:"
+          ls -la
+          if [ -f build.gradle ]; then
+            echo "proj=." >> $GITHUB_OUTPUT
+          elif [ -f StardewSkills-BetterHud-PAPI/build.gradle ]; then
+            echo "proj=StardewSkills-BetterHud-PAPI" >> $GITHUB_OUTPUT
+          else
+            # 가장 흔한 2중 폴더 케이스를 폭넓게 탐색
+            CAND=$(find . -maxdepth 2 -type f -name build.gradle | head -n1)
+            if [ -n "$CAND" ]; then
+              DIR=$(dirname "$CAND")
+              echo "proj=${DIR#.}" >> $GITHUB_OUTPUT
+            else
+              echo "build.gradle not found"; exit 1
+            fi
+          fi
+          echo "Using project dir: ${{ steps.detect.outputs.proj }}"
+
       - name: Build with Gradle
-        run: gradle build
+        shell: bash
+        run: |
+          cd "${{ steps.detect.outputs.proj }}"
+          gradle build
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: stardewskills-jar
-          path: build/libs/*.jar
+          path: |
+            build/libs/*.jar
+            ${{ steps.detect.outputs.proj }}/build/libs/*.jar
+          if-no-files-found: warn
